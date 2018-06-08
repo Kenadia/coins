@@ -10,7 +10,11 @@ Usage:
 python coins.py
 ```
 
-## Configuration:
+Example output:
+
+![Screenshot of example output.](https://github.com/Kenadia/coins/blob/master/example_output.png?raw=true)
+
+## Configuration
 
 Behavior can be configured via variables set in `config.py`. The options are
 below. All are optional, but the script will do nothing if `EXCHANGES` is not
@@ -22,7 +26,7 @@ provided:
        Defaults to 'Subtotal'.
 - `EXCLUDE_ZEROS`: Whether to exclude zero balances. Defaults to `True`.
 
-## Caching:
+## Caching
 
 By default, results are cached, in order to avoid unnecessary querying. An
 argument should be provided if you wish to override the cache, for example:
@@ -32,7 +36,7 @@ python coins.py polo,trex  # Ignore the cache for specific exchanges.
 python coins.py all        # Ignore the cache entirely.
 ```
 
-## Exchange modules and API:
+## Exchange modules and API
 
 The code for querying each exchange is separated into separate Python modules.
 Code is provided for querying several popular exchanges. You can provide your
@@ -45,9 +49,9 @@ provide the following API:
     dictionary from currency (e.g. 'BTC', 'ETH') to an amount, as a float.
     Zero balances are not expected to be filtered out by this function.
 
-Credentials:
+## Credentials
   As a convention, API credentials are stored in config.py under the variables
 `{SHORT_NAME}_KEY` and `{SHORT_NAME}_SECRET` for each exchange.
 
-It is recommended that you give the API keys the minimal permissions required to
+It is recommended that you give the API keys the minimum permissions required to
 query account balances.
