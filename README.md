@@ -49,8 +49,9 @@ provide the following API:
     dictionary from currency (e.g. 'BTC', 'ETH') to an amount, as a float.
     Zero balances are not expected to be filtered out by this function.
 
-## Credentials
-  As a convention, API credentials are stored in config.py under the variables
+## Authentication
+
+As a convention, API credentials are stored in config.py under the variables
 `{SHORT_NAME}_KEY` and `{SHORT_NAME}_SECRET` for each exchange.
 
 It is recommended that you give the API keys the minimum permissions required to
