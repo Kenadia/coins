@@ -1,0 +1,4 @@
+*.pickle
+*.pyc
+config.py
+venv
