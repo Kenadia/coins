@@ -5,7 +5,7 @@ Configuration:
 below. All are optional, but the script will do nothing if EXCHANGES is not
 provided:
   - EXCHANGES: A list of modules implementing the exchange API (see below).
-  - SYMOL_TRANSFORM: Used to specify a mapping for correcting currency symbols.
+  - SYMBOL_TRANSFORM: Used to specify a mapping for correcting currency symbols.
   - CACHE_FILE: Where to store the cache. Defaults to `balances.pickle`.
   - `TOTAL_COLUMN`: The label for the column containing balance totals. Defaults
         to 'Subtotal'.
