@@ -13,6 +13,7 @@ EXCHANGES = [
 SYMBOL_TRANSFORM = {
   'STR': 'XLM',
 }
+REQUIRED_ROWS = []
 
 # Authentication.
 COINBASE_KEY = '...'

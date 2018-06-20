@@ -25,6 +25,7 @@ provided:
 - `TOTAL_COLUMN`: The label for the column containing balance totals.
        Defaults to 'Subtotal'.
 - `EXCLUDE_ZEROS`: Whether to exclude zero balances. Defaults to `True`.
+- `REQUIRED_ROWS`: A list of currency symbols to always include.
 
 ## Caching
 

@@ -7,9 +7,10 @@ provided:
   - EXCHANGES: A list of modules implementing the exchange API (see below).
   - SYMBOL_TRANSFORM: Used to specify a mapping for correcting currency symbols.
   - CACHE_FILE: Where to store the cache. Defaults to `balances.pickle`.
-  - `TOTAL_COLUMN`: The label for the column containing balance totals. Defaults
+  - TOTAL_COLUMN: The label for the column containing balance totals. Defaults
         to 'Subtotal'.
-  - `EXCLUDE_ZEROS`: Whether to exclude zero balances. Defaults to `True`.
+  - EXCLUDE_ZEROS: Whether to exclude zero balances. Defaults to `True`.
+  - REQUIRED_ROWS: A list of currency symbols to always include.
 
 Caching:
   By default, results are cached, in order to avoid unnecessary querying. An
@@ -142,7 +143,8 @@ def main():
   writer.writerow(['Currency'] + columns)
 
   # Sort the rows alphabetically by the currency symbol.
-  currencies = sorted(data.iterkeys())
+  required_rows = getattr(config, 'REQUIRED_ROWS', [])
+  currencies = sorted(set(data.keys() + required_rows))
 
   zero_count = 0
 
@@ -152,7 +154,8 @@ def main():
     # Count zero-balances and skip, depending on the config.
     if balances[TOTAL_COLUMN] == 0:
       zero_count += 1
-      if getattr(config, 'EXCLUDE_ZEROS', True):
+      if (getattr(config, 'EXCLUDE_ZEROS', True)
+          and currency not in required_rows):
         continue
 
     amounts = [balances[column] for column in columns]
