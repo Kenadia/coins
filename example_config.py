@@ -7,6 +7,7 @@ EXCHANGES = [
     'coinex',
     'gdax',
     'hitbtc',
+    'liqui',
     'polo',
     'trex',
 ]
@@ -25,6 +26,8 @@ GDAX_PASSPHRASE = '...'
 GDAX_SECRET = '...'
 HITBTC_KEY = '...'
 HITBTC_SECRET = '...'
+LIQUI_KEY = '...'
+LIQUI_SECRET = '...'
 POLO_KEY = '...'
 POLO_SECRET = '...'
 TREX_KEY = '...'
