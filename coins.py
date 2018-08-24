@@ -119,7 +119,11 @@ def get_data(cache=None, ignore_cache_for=()):
   for exchange_module in get_exchange_modules():
     exchange_name = exchange_module.NAME
     ignore_cache = exchange_name in ignore_cache_for
-    balances = get_balances(exchange_module, cache, ignore_cache)
+    try:
+      balances = get_balances(exchange_module, cache, ignore_cache)
+    except Exception as e:
+      print 'Error: %s' % e
+      continue
     for currency, amount in balances.iteritems():
       data[currency][exchange_name] = amount
       data[currency][TOTAL_COLUMN] += amount
