@@ -1,0 +1,2 @@
+STR in Poloniex not getting translated to XLM
+CoinEx returning no data
