@@ -2,8 +2,8 @@ certifi==2018.4.16
 chardet==3.0.4
 coinbase==2.1.0
 idna==2.6
-pycryptodome==3.6.1
+pycryptodome==3.7.3
 pyperclip==1.6.2
-requests==2.18.4
+requests==2.21.0
 six==1.11.0
-urllib3==1.22
+urllib3==1.24.1
