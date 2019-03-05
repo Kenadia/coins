@@ -52,6 +52,8 @@ except ImportError:
 CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
 TOTAL_COLUMN = getattr(config, 'TOTAL_COLUMN', 'Subtotal')
 
+EXCHANGES_MODULE_BASE = 'coins.exchanges'
+
 
 def read_cache():
   """Read from the cache file and return the contents."""
@@ -71,7 +73,10 @@ def write_cache(cache):
 def get_exchange_modules():
   """Import the configured modules and return them as a list."""
   module_names = getattr(config, 'EXCHANGES', [])
-  return [importlib.import_module('exchanges.' + name) for name in module_names]
+  return [
+      importlib.import_module('{}.{}'.format(EXCHANGES_MODULE_BASE, name))
+      for name in module_names
+  ]
 
 
 def get_balances(exchange_module, cache, ignore_cache):

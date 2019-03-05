@@ -1,7 +1,7 @@
 import collections
 import requests
 
-import config
+from coins import config
 
 NAME = 'HitBTC'
 BASE_URL = 'https://api.hitbtc.com/api/2/'

@@ -1,6 +1,6 @@
 import coinbase.wallet.client
 
-import config
+from coins import config
 
 NAME = 'Coinbase'
 

@@ -6,7 +6,7 @@ import time
 import requests
 from requests import auth
 
-import config
+from coins import config
 
 NAME = 'GDAX'
 BASE_URL = 'https://api.gdax.com/'

@@ -5,7 +5,7 @@ import urllib
 
 import requests
 
-import config
+from coins import config
 
 NAME = 'Poloniex'
 URL = 'https://poloniex.com/tradingApi'

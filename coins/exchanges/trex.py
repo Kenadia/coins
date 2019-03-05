@@ -4,7 +4,7 @@ import time
 
 import requests
 
-import config
+from coins import config
 
 NAME = 'Bittrex'
 BASE_URL = 'https://bittrex.com/api/v1.1/'

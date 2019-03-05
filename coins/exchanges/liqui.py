@@ -5,7 +5,7 @@ import urllib
 
 import requests
 
-import config
+from coins import config
 
 NAME = 'Liqui'
 URL = 'https://api.liqui.io/tapi'

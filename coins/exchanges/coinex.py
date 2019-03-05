@@ -3,7 +3,7 @@ import time
 
 import requests
 
-import config
+from coins import config
 
 NAME = 'CoinEx'
 BASE_URL = 'https://api.coinex.com/v1/'
