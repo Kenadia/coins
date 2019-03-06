@@ -43,6 +43,7 @@ import sys
 
 import pyperclip
 
+import cmc
 try:
   import config
 except ImportError:
@@ -143,10 +144,8 @@ def get_data(cache=None, ignore_cache_for=()):
 
 def write_csv(data, columns, exclude_zeros, required_rows=None,
               symbol_map=None, delimiter=','):
-  if required_rows is None:
-    required_rows = []
-  if symbol_map is None:
-    symbol_map = {}
+  required_rows = required_rows or []
+  symbol_map = symbol_map or {}
 
   # Prepare a writer to write a CSV file to a string. We use a tab delimiter to
   # make it easy to paste the data into a spreadsheet application.
@@ -174,7 +173,7 @@ def write_csv(data, columns, exclude_zeros, required_rows=None,
 
     # Apply symbol transformations.
     if currency in symbol_map:
-      current = symbol_map[currency]
+      currency = symbol_map[currency]
 
     writer.writerow([currency] + amounts)
 
@@ -207,15 +206,40 @@ def main():
         ignore_cache_for.append(exchange_module.NAME)
 
   data, columns = get_data(cache, ignore_cache_for)
+
+  # Apply symbol mapping and remove unnecessary rows.
   exclude_zeros = getattr(config, 'EXCLUDE_ZEROS', True)
   required_rows = getattr(config, 'REQUIRED_ROWS', [])
   symbol_map = getattr(config, 'SYMBOL_TRANSFORM', {})
-  csv_string = write_csv(data, columns, exclude_zeros, required_rows,
-                         symbol_map, delimiter='\t')
+  data = {
+      symbol_map.get(symbol, symbol): balances
+      for symbol, balances in data.iteritems()
+      if (not exclude_zeros or
+          symbol in required_rows or
+          any(amount for amount in balances.itervalues()))
+  }
 
-  raw_input('Export ready. Press enter to save to clipboard.')
-  pyperclip.copy(csv_string)
+  # Calculate USD totals.
+  totals = collections.defaultdict(int)
+  quotes = cmc.get_quotes(data.iterkeys())
+  quotes.setdefault('USD', 1.0)
+  for symbol, balances in data.iteritems():
+    for exchange_name, amount in balances.iteritems():
+      totals[exchange_name] += amount * quotes[symbol]
+
+  totals.pop('Subtotal')
+
+  for exchange_name, usd_total in totals.iteritems():
+    print '% 15s: %.2f' % (exchange_name, usd_total)
   print
+  print '% 15s: %.2f' % ('TOTAL', sum(totals.itervalues()))
+
+  # csv_string = write_csv(data, columns, exclude_zeros, required_rows,
+  #                        symbol_map, delimiter='\t')
+
+  # raw_input('Export ready. Press enter to save to clipboard.')
+  # pyperclip.copy(csv_string)
+  # print
 
 
 if __name__ == '__main__':

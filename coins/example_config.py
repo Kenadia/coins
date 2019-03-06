@@ -16,7 +16,9 @@ SYMBOL_TRANSFORM = {
 }
 REQUIRED_ROWS = []
 
-# Authentication.
+COINMARKETCAP_KEY = '...'
+
+# Exchange API keys.
 COINBASE_KEY = '...'
 COINBASE_SECRET = '...'
 COINEX_KEY = '...'  # "Access ID."
