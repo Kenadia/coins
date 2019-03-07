@@ -222,7 +222,6 @@ def main():
   # Calculate USD totals.
   totals = collections.defaultdict(int)
   quotes = cmc.get_quotes(data.iterkeys())
-  quotes.setdefault('USD', 1.0)
   for symbol, balances in data.iteritems():
     for exchange_name, amount in balances.iteritems():
       totals[exchange_name] += amount * quotes[symbol]
