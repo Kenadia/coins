@@ -221,12 +221,17 @@ def main():
 
   # Calculate USD totals.
   totals = collections.defaultdict(int)
-  quotes = cmc.get_quotes(data.iterkeys())
+  symbols = data.iterkeys()
+  quotes = cmc.get_quotes(symbols)
   for symbol, balances in data.iteritems():
     for exchange_name, amount in balances.iteritems():
       totals[exchange_name] += amount * quotes[symbol]
-
   totals.pop('Subtotal')
+
+  for symbol, balances in sorted(data.iteritems()):
+    print '% 15s: % 11.2f' % (symbol, balances['Subtotal'])
+
+  print
 
   for exchange_name, usd_total in totals.iteritems():
     print '% 15s: %.2f' % (exchange_name, usd_total)
