@@ -39,9 +39,14 @@ import collections
 import csv
 import importlib
 import io
+import traceback
 
 import frozendict
 import pyperclip
+
+
+def print_error_with_traceback(_error):
+  traceback.print_exc()
 
 
 class Exchanges(object):
@@ -144,7 +149,7 @@ class Exchanges(object):
     columns.append(total_column)
     return data, columns
 
-  def get_table(self, module_names, handle_error):
+  def get_table(self, module_names, handle_error=print_error_with_traceback):
     results = []
 
     for name in module_names:

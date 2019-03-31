@@ -1,6 +1,5 @@
 import collections
 import sys
-import traceback
 
 import coins
 
@@ -27,10 +26,6 @@ def parse_args():
   return ignore_cache_for
 
 
-def handle_error(_error):
-  traceback.print_exc()
-
-
 def main():
   """Retrieve account balances and save a data table to the clipboard."""
   CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
@@ -39,7 +34,7 @@ def main():
   ignore_cache_for = parse_args()
   cache = coins.Cache(CACHE_FILE, ignore_cache_for)
   exchanges = coins.Exchanges(config, cache)
-  data, columns = exchanges.get_table(module_names, handle_error)
+  data, columns = exchanges.get_table(module_names)
 
   # Calculate USD totals by exchange.
   usd_by_exchange = collections.defaultdict(int)
