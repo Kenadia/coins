@@ -1,4 +1,6 @@
-import md5
+from __future__ import print_function
+
+import hashlib
 import time
 
 import requests
@@ -19,8 +21,9 @@ def get_balances():
 
   url = URL + '?' + base_param_string
   param_string_to_sign = (
-      base_param_string + '&secret_key=' + config.COINEX_SECRET)
-  digest = md5.new(param_string_to_sign).hexdigest()
+      base_param_string + '&secret_key=' + config.COINEX_SECRET
+  ).encode('ascii')
+  digest = hashlib.new('md5', param_string_to_sign).hexdigest()
   headers = {
       'User-Agent': ('User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) '
                      'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -31,13 +34,13 @@ def get_balances():
   balances = {
       str(key):
       float(value['available']) + float(value['frozen'])
-      for key, value in data.iteritems()
+      for key, value in data.items()
   }
   return balances
 
 
 if __name__ == '__main__':
   balances = get_balances()
-  for symbol, balance in balances.iteritems():
+  for symbol, balance in balances.items():
     if balance > 0:
-      print '%6s %.3f' % (symbol, balance)
+      print('%6s %.3f' % (symbol, balance))

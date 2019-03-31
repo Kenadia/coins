@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import hashlib
 import hmac
 import time
@@ -29,6 +31,6 @@ def get_balances():
 
 if __name__ == '__main__':
   balances = get_balances()
-  for symbol, balance in balances.iteritems():
+  for symbol, balance in balances.items():
     if balance > 0:
-      print '%6s %.3f' % (symbol, balance)
+      print('%6s %.3f' % (symbol, balance))

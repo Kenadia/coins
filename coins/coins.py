@@ -33,6 +33,8 @@ Credentials:
 `{SHORT_NAME}_KEY` and `{SHORT_NAME}_SECRET` for each exchange.
 """
 
+from __future__ import print_function
+
 import collections
 import csv
 import importlib
@@ -40,10 +42,11 @@ import io
 import os
 import pickle
 import sys
+import traceback
 
 import pyperclip
 
-import cmc
+from coins import cmc
 
 EXCHANGES_MODULE_BASE = 'coins.exchanges'
 
@@ -58,7 +61,7 @@ class Cache(object):
     """Read the whole cache."""
     if not os.path.exists(self.cache_file):
       return {}
-    with open(self.cache_file, 'r') as f:
+    with open(self.cache_file, 'rb') as f:
       return pickle.load(f)
 
   def read(self, module_name):
@@ -72,12 +75,12 @@ class Cache(object):
     """Write to the cache file."""
     data = self._read()
     data[module_name] = exchange_data
-    with open(self.cache_file, 'w') as f:
+    with open(self.cache_file, 'wb') as f:
       pickle.dump(data, f)
 
 
 def get_exchange_module(module_name):
-  return importlib.import_module('{}.{}'.format(EXCHANGES_MODULE_BASE, name))
+  return importlib.import_module('{}.{}'.format(EXCHANGES_MODULE_BASE, module_name))
 
 
 def get_balances(module_name, exchange_module, cache):
@@ -86,10 +89,10 @@ def get_balances(module_name, exchange_module, cache):
   exchange_data = cache.read(module_name)
 
   if exchange_data is not None:
-    print 'Reading cached data for exchange {}.'.format(exchange_name)
+    print('Reading cached data for exchange {}.'.format(exchange_name))
 
   else:
-    print 'Making request to {} API.'.format(exchange_name)
+    print('Making request to {} API.'.format(exchange_name))
     exchange_data = exchange_module.get_balances()
     cache.write(module_name, exchange_data)
 
@@ -129,9 +132,9 @@ def get_data(module_names, config, cache=None):
     try:
       balances = get_balances(module_name, exchange_module, cache)
     except Exception as e:
-      print 'Error: %s' % e
+      traceback.print_exc()
       continue
-    for currency, amount in balances.iteritems():
+    for currency, amount in balances.items():
       data[currency][exchange_name] = amount
       data[currency][total_column] += amount
     columns.append(exchange_name)
@@ -146,10 +149,10 @@ def get_data(module_names, config, cache=None):
   symbol_map = getattr(config, 'SYMBOL_TRANSFORM', {})
   data = {
       symbol_map.get(symbol, symbol): balances
-      for symbol, balances in data.iteritems()
+      for symbol, balances in data.items()
       if (not exclude_zeros or
           symbol in required_rows or
-          any(amount for amount in balances.itervalues()))
+          any(amount for amount in balances.values()))
   }
 
   return data, columns
@@ -191,11 +194,11 @@ def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
     writer.writerow([currency] + amounts)
 
   try:
-    print ('\nRetrieved balances for %d currencies (%d with balances) from '
+    print('\nRetrieved balances for %d currencies (%d with balances) from '
            '%d exchanges.\n' %
            (len(currencies), len(currencies) - zero_count, len(amounts) - 1))
   except NameError:
-    print 'No data was retrieved. Please configure `EXCHANGES` in config.py.\n'
+    print('No data was retrieved. Please configure `EXCHANGES` in config.py.\n')
   return out.getvalue()
 
 
@@ -204,9 +207,9 @@ def main():
 
   # Read config from config.py.
   try:
-    import config
+    from coins import config
   except ImportError:
-    print 'Warning: Please add a `config.py` file in order to use this script.\n'
+    print('Warning: Please add a `config.py` file in order to use this script.\n')
     config = object()
 
   module_names = getattr(config, 'EXCHANGES', [])
@@ -229,64 +232,69 @@ def main():
 
   # Calculate USD totals by exchange.
   usd_by_exchange = collections.defaultdict(int)
-  symbols = data.iterkeys()
+  symbols = data.keys()
+
+  if not symbols:
+    print('Cannot continue: did not find any balances.')
+    sys.exit(1)
+
   quotes = cmc.get_quotes(symbols)
-  for symbol, balances in data.iteritems():
-    for exchange_name, amount in balances.iteritems():
+  for symbol, balances in data.items():
+    for exchange_name, amount in balances.items():
       usd_by_exchange[exchange_name] += amount * quotes[symbol]
   usd_by_exchange.pop('Subtotal')
 
   # Calculate USD totals by token.
   usd_by_token = {
       symbol: balances['Subtotal'] * quotes[symbol]
-      for symbol, balances in data.iteritems()
+      for symbol, balances in data.items()
   }
 
   high_value_token_counts = (
       (symbol, balances['Subtotal'])
-      for symbol, balances in data.iteritems()
+      for symbol, balances in data.items()
       if usd_by_token[symbol] >= 500.0
   )
 
   mid_value_token_counts = (
       (symbol, balances['Subtotal'])
-      for symbol, balances in data.iteritems()
+      for symbol, balances in data.items()
       if usd_by_token[symbol] >= 20.0 and usd_by_token[symbol] < 500.0
   )
 
   low_value_token_counts = (
       (symbol, balances['Subtotal'])
-      for symbol, balances in data.iteritems()
+      for symbol, balances in data.items()
       if usd_by_token[symbol] < 20.0
   )
 
   # Print token counts.
-  print 'HIGH VALUE'
+  print('HIGH VALUE')
   for symbol, balance in sorted(high_value_token_counts):
-    print '% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol])
-  print
-  print 'MID VALUE'
+    print('% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol]))
+  print()
+  print('MID VALUE')
   for symbol, balance in sorted(mid_value_token_counts):
-    print '% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol])
-  print
-  print 'LOW VALUE'
+    print('% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol]))
+  print()
+  print('LOW VALUE')
   for symbol, balance in sorted(low_value_token_counts):
-    print '% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol])
-  print
+    print('% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol]))
+  print()
 
-  print
+  print()
 
-  for exchange_name, usd_total in usd_by_exchange.iteritems():
-    print '% 15s: %.2f' % (exchange_name, usd_total)
-  print
-  print '% 15s: %.2f' % ('TOTAL', sum(usd_by_exchange.itervalues()))
+  for exchange_name, usd_total in usd_by_exchange.items():
+    print('% 15s: %.2f' % (exchange_name, usd_total))
+  print()
+  print('% 15s: %.2f' % ('TOTAL', sum(usd_by_exchange.values())))
 
   # csv_string = write_csv(data, columns, total_column, exclude_zeros, required_rows,
   #                        symbol_map, delimiter='\t')
 
   # raw_input('Export ready. Press enter to save to clipboard.')
   # pyperclip.copy(csv_string)
-  # print
+  # print()
 
 
 if __name__ == '__main__':

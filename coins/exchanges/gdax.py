@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import base64
 import hashlib
 import hmac
@@ -23,10 +25,11 @@ class CoinbaseExchangeAuth(auth.AuthBase):
   def __call__(self, request):
     timestamp = str(time.time())
     message = (
-        timestamp + request.method + request.path_url + (request.body or ''))
+        timestamp + request.method + request.path_url + (request.body or '')
+    ).encode('ascii')
     hmac_key = base64.b64decode(self.secret_key)
     signature = hmac.new(hmac_key, message, hashlib.sha256)
-    signature_b64 = signature.digest().encode('base64').rstrip('\n')
+    signature_b64 = base64.encodebytes(signature.digest()).rstrip(b'\n')
 
     request.headers.update({
         'CB-ACCESS-SIGN': signature_b64,
@@ -48,6 +51,6 @@ def get_balances():
 
 if __name__ == '__main__':
   balances = get_balances()
-  for symbol, balance in balances.iteritems():
+  for symbol, balance in balances.items():
     if balance > 0:
-      print '%6s %.3f' % (symbol, balance)
+      print('%6s %.3f' % (symbol, balance))

@@ -16,7 +16,7 @@ def get_balances():
       'method': 'getInfo',
       'nonce': int(time.time()),
   }
-  params_string = urllib.urlencode(params)
+  params_string = urllib.parse.urlencode(params)
   signature = hmac.new(
       config.LIQUI_SECRET.encode(), params_string.encode(), hashlib.sha512
   ).hexdigest()
@@ -32,7 +32,7 @@ def get_balances():
   result = data['return']['funds']
   return {
       currency.upper(): float(balance)
-      for currency, balance in result.iteritems()
+      for currency, balance in result.items()
   }
 
 
@@ -53,6 +53,6 @@ def get_balances():
 
 if __name__ == '__main__':
   balances = get_balances()
-  for symbol, balance in balances.iteritems():
+  for symbol, balance in balances.items():
     if balance > 0:
       print '%6s %.3f' % (symbol, balance)

@@ -79,7 +79,7 @@ def get_quotes(symbols):
   # Return simplified data.
   quotes = {
       symbol: data[symbol]['quote']['USD']['price']
-      for symbol in data.iterkeys()
+      for symbol in data.keys()
   }
 
   if invalid_symbols:
