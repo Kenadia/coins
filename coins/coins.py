@@ -44,61 +44,63 @@ import sys
 import pyperclip
 
 import cmc
-try:
-  import config
-except ImportError:
-  print 'Warning: Please add a `config.py` file in order to use this script.\n'
-  config = object()
-
-CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
-TOTAL_COLUMN = getattr(config, 'TOTAL_COLUMN', 'Subtotal')
 
 EXCHANGES_MODULE_BASE = 'coins.exchanges'
 
 
-def read_cache():
-  """Read from the cache file and return the contents."""
-  if not os.path.exists(CACHE_FILE):
-    return
-  print 'Reading previous data from `%s`.\n' % CACHE_FILE
-  with open(CACHE_FILE, 'r') as f:
-    return pickle.load(f)
+class Cache(object):
+
+  def __init__(self, cache_file, ignore_cache_for):
+    self.cache_file = cache_file
+    self.ignore_cache_for = ignore_cache_for
+
+  def _read(self):
+    """Read the whole cache."""
+    if not os.path.exists(self.cache_file):
+      return {}
+    with open(self.cache_file, 'r') as f:
+      return pickle.load(f)
+
+  def read(self, module_name):
+    """Read from the cache file and return the data for a given module."""
+    if module_name in self.ignore_cache_for:
+      return
+    data = self._read()
+    return data.get(module_name)
+
+  def write(self, module_name, exchange_data):
+    """Write to the cache file."""
+    data = self._read()
+    data[module_name] = exchange_data
+    with open(self.cache_file, 'w') as f:
+      pickle.dump(data, f)
 
 
-def write_cache(cache):
-  """Write to the cache file."""
-  with open(CACHE_FILE, 'w') as f:
-    pickle.dump(cache, f)
+def get_exchange_module(module_name):
+  return importlib.import_module('{}.{}'.format(EXCHANGES_MODULE_BASE, name))
 
 
-def get_exchange_modules():
-  """Import the configured modules and return them as a list."""
-  module_names = getattr(config, 'EXCHANGES', [])
-  return [
-      importlib.import_module('{}.{}'.format(EXCHANGES_MODULE_BASE, name))
-      for name in module_names
-  ]
-
-
-def get_balances(exchange_module, cache, ignore_cache):
+def get_balances(module_name, exchange_module, cache):
   """Get balances either from the cache or by making a query."""
+  exchange_name = exchange_module.NAME
+  exchange_data = cache.read(module_name)
 
-  # Get the exchange short name (e.g. 'polo', 'trex', 'cb').
-  short_name = exchange_module.__name__.rpartition('.')[2]
+  if exchange_data is not None:
+    print 'Reading cached data for exchange {}.'.format(exchange_name)
 
-  if short_name not in cache or ignore_cache:
-    print 'Making request to %s API.' % exchange_module.NAME
-    cache[short_name] = exchange_module.get_balances()
-    write_cache(cache)
-  return cache[short_name]
+  else:
+    print 'Making request to {} API.'.format(exchange_name)
+    exchange_data = exchange_module.get_balances()
+    cache.write(module_name, exchange_data)
+
+  return exchange_data
 
 
-def get_data(cache=None, ignore_cache_for=()):
+def get_data(module_names, config, cache=None):
   """Acquire all data and transform it for output to a CSV.
 
   Args:
-    cache: A dictionary of results read from the cache, or None.
-    ignore_cache_for: A list of exchange names for which to ignore the cache.
+    cache: Cache object.
 
   Returns:
     Account balances, in a format like the following:
@@ -116,28 +118,27 @@ def get_data(cache=None, ignore_cache_for=()):
             },
         }
   """
-  if cache is None:
-    cache = {}
+  total_column = getattr(config, 'TOTAL_COLUMN', 'Subtotal')
 
   data = collections.defaultdict(lambda: collections.defaultdict(int))
   columns = []
 
-  for exchange_module in get_exchange_modules():
+  for module_name in module_names:
+    exchange_module = get_exchange_module(module_name)
     exchange_name = exchange_module.NAME
-    ignore_cache = exchange_name in ignore_cache_for
     try:
-      balances = get_balances(exchange_module, cache, ignore_cache)
+      balances = get_balances(module_name, exchange_module, cache)
     except Exception as e:
       print 'Error: %s' % e
       continue
     for currency, amount in balances.iteritems():
       data[currency][exchange_name] = amount
-      data[currency][TOTAL_COLUMN] += amount
+      data[currency][total_column] += amount
     columns.append(exchange_name)
 
   # Sort the exchanges alphabetically.
   columns.sort()
-  columns.append(TOTAL_COLUMN)
+  columns.append(total_column)
 
   # Apply symbol mapping and remove unnecessary rows.
   exclude_zeros = getattr(config, 'EXCLUDE_ZEROS', True)
@@ -154,7 +155,7 @@ def get_data(cache=None, ignore_cache_for=()):
   return data, columns
 
 
-def write_csv(data, columns, exclude_zeros, required_rows=None,
+def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
               symbol_map=None, delimiter=','):
   required_rows = required_rows or []
   symbol_map = symbol_map or {}
@@ -176,7 +177,7 @@ def write_csv(data, columns, exclude_zeros, required_rows=None,
     balances = data[currency]
 
     # Count zero-balances and skip, depending on the config.
-    if balances[TOTAL_COLUMN] == 0:
+    if balances[total_column] == 0:
       zero_count += 1
       if (exclude_zeros and currency not in required_rows):
         continue
@@ -200,24 +201,31 @@ def write_csv(data, columns, exclude_zeros, required_rows=None,
 
 def main():
   """Retrieve account balances and save a data table to the clipboard."""
-  ignore_cache_for = []
 
+  # Read config from config.py.
+  try:
+    import config
+  except ImportError:
+    print 'Warning: Please add a `config.py` file in order to use this script.\n'
+    config = object()
+
+  module_names = getattr(config, 'EXCHANGES', [])
+
+  # No argument: Use the cache for all exchanges.
   if len(sys.argv) == 1:
-    # No argument: Use the cache for all exchanges.
-    cache = read_cache()
-  elif sys.argv[1] == 'all':
-    # Argument is `all`: Ignore the cache for all exchanges.
-    cache = {}
-  else:
-    # Otherwise: Ignore the cache for the specified exchanges.
-    cache = read_cache()
-    short_names = sys.argv[1].split(',')
-    for exchange_module in get_exchange_modules():
-      short_name = exchange_module.__name__.rpartition('.')[2]
-      if short_name in short_names:
-        ignore_cache_for.append(exchange_module.NAME)
+    ignore_cache_for = []
 
-  data, columns = get_data(cache, ignore_cache_for)
+  # Argument is `all`: Ignore the cache for all exchanges.
+  elif sys.argv[1] == 'all':
+    ignore_cache_for = module_names
+
+  # Otherwise: Ignore the cache for the specified exchanges.
+  else:
+    ignore_cache_for = sys.argv[1].split(',')
+
+  CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
+  cache = Cache(CACHE_FILE, ignore_cache_for)
+  data, columns = get_data(module_names, config, cache)
 
   # Calculate USD totals by exchange.
   usd_by_exchange = collections.defaultdict(int)
@@ -273,7 +281,7 @@ def main():
   print
   print '% 15s: %.2f' % ('TOTAL', sum(usd_by_exchange.itervalues()))
 
-  # csv_string = write_csv(data, columns, exclude_zeros, required_rows,
+  # csv_string = write_csv(data, columns, total_column, exclude_zeros, required_rows,
   #                        symbol_map, delimiter='\t')
 
   # raw_input('Export ready. Press enter to save to clipboard.')
