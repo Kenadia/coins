@@ -137,8 +137,20 @@ def get_data(cache=None, ignore_cache_for=()):
 
   # Sort the exchanges alphabetically.
   columns.sort()
-
   columns.append(TOTAL_COLUMN)
+
+  # Apply symbol mapping and remove unnecessary rows.
+  exclude_zeros = getattr(config, 'EXCLUDE_ZEROS', True)
+  required_rows = getattr(config, 'REQUIRED_ROWS', [])
+  symbol_map = getattr(config, 'SYMBOL_TRANSFORM', {})
+  data = {
+      symbol_map.get(symbol, symbol): balances
+      for symbol, balances in data.iteritems()
+      if (not exclude_zeros or
+          symbol in required_rows or
+          any(amount for amount in balances.itervalues()))
+  }
+
   return data, columns
 
 
@@ -206,18 +218,6 @@ def main():
         ignore_cache_for.append(exchange_module.NAME)
 
   data, columns = get_data(cache, ignore_cache_for)
-
-  # Apply symbol mapping and remove unnecessary rows.
-  exclude_zeros = getattr(config, 'EXCLUDE_ZEROS', True)
-  required_rows = getattr(config, 'REQUIRED_ROWS', [])
-  symbol_map = getattr(config, 'SYMBOL_TRANSFORM', {})
-  data = {
-      symbol_map.get(symbol, symbol): balances
-      for symbol, balances in data.iteritems()
-      if (not exclude_zeros or
-          symbol in required_rows or
-          any(amount for amount in balances.itervalues()))
-  }
 
   # Calculate USD totals by exchange.
   usd_by_exchange = collections.defaultdict(int)
