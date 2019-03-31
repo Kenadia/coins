@@ -15,6 +15,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'coinbase==2.1.0',
+        'frozendict',
         'requests',
     ],
 )
