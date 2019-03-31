@@ -2,6 +2,18 @@ import os
 import pickle
 
 
+class NoCache(object):
+
+  def __init__(self):
+    pass
+
+  def read(self, _key):
+    return
+
+  def write(self, _key, _value):
+    pass
+
+
 class Cache(object):
 
   def __init__(self, cache_file, ignore_cache_for=()):

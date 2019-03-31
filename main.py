@@ -1,3 +1,13 @@
+'''Query and aggregate account balances from multiple cryptocurrency exchanges.
+
+See example_config.py and coins/exchange_data.py for info on configuration.
+
+Usage:
+  python main.py            # Use the cache for all exchanges.
+  python main.py polo,trex  # Ignore the cache for specific exchanges.
+  python main.py all        # Ignore the cache entirely.
+'''
+
 import collections
 import sys
 
@@ -28,11 +38,11 @@ def parse_args():
 
 def main():
   """Retrieve account balances and save a data table to the clipboard."""
-  CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
+  CACHE_FILE = getattr(config, 'CACHE_FILE', coins.exchange_data.DEFAULT_CACHE)
   module_names = getattr(config, 'EXCHANGES', [])
 
   ignore_cache_for = parse_args()
-  cache = coins.Cache(CACHE_FILE, ignore_cache_for)
+  cache = coins.cache.Cache(CACHE_FILE, ignore_cache_for)
   exchanges = coins.Exchanges(config, cache)
   data, columns = exchanges.get_table(module_names)
 

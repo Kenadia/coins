@@ -1,36 +1,28 @@
-"""Query account balances from multiple cryptocurrency exchanges.
+"""Query and aggregate account balances from multiple cryptocurrency exchanges.
 
-Configuration:
-  Behavior can be configured via variables set in config.py. The options are
-below. All are optional, but the script will do nothing if EXCHANGES is not
-provided:
-  - EXCHANGES: A list of modules implementing the exchange API (see below).
+# Configuration
+
+The Exchanges class requires a `config` parameter, which can be, e.g., a module
+or a dictionary. The following keys are used, but only `EXCHANGE_KEYS` is
+required:
+  - EXCHANGE_KEYS: Dictionary of API credentials, keyed on exchange module name.
   - SYMBOL_TRANSFORM: Used to specify a mapping for correcting currency symbols.
-  - CACHE_FILE: Where to store the cache. Defaults to `balances.pickle`.
-  - TOTAL_COLUMN: The label for the column containing balance totals. Defaults
-        to 'Subtotal'.
   - EXCLUDE_ZEROS: Whether to exclude zero balances. Defaults to `True`.
   - REQUIRED_ROWS: A list of currency symbols to always include.
 
-Caching:
-  By default, results are cached, in order to avoid unnecessary querying. An
-argument should be provided if you wish to override the cache, for example:
+# Caching
 
-    python coins.py polo,trex  # Ignore the cache for specific exchanges.
-    python coins.py all        # Ignore the cache entirely.
+By default, responses returned by the exchange APIs are cached in a file named
+`balances.pickle.` This is configurable via the `cache` parameter.
 
-Exchange modules and API:
-  The code for querying each exchange is separated into separate Python modules.
+# Exchange modules
+
+The code for querying each exchange is separated into separate Python modules.
 The modules should contain the minimum code required to do the job. Each must
 provide the following API:
   - NAME: A string representing the full exchange name.
-  - get_balances(): A function which will query and return account balances as a
-        dictionary from currency (e.g. 'BTC', 'ETH') to an amount, as a float.
-        Zero balances are not expected to be filtered out by this function.
-
-Credentials:
-  As a convention, API credentials are stored in config.py under the variables
-`{SHORT_NAME}_KEY` and `{SHORT_NAME}_SECRET` for each exchange.
+  - get_balances(api_config): Returns account balances as a dictionary from
+    symbol (e.g. 'BTC', 'ETH') to amount, as a float.
 """
 
 from __future__ import print_function
@@ -43,6 +35,8 @@ import traceback
 
 import frozendict
 import pyperclip
+
+DEFAULT_CACHE = 'balances.pickle'
 
 
 def print_error_with_traceback(_error):
@@ -58,9 +52,14 @@ class Exchanges(object):
   }
   EXCHANGES_MODULE_BASE = 'coins.exchanges'
 
-  def __init__(self, config, cache):
+  def __init__(self, config, cache=None):
     if not isinstance(config, dict):
       config = config.__dict__
+
+    if cache is None or cache is True:
+      cache = coins.cache.Cache(DEFAULT_CACHE)
+    elif cache is False:
+      cache = coins.cache.NoCache()
 
     self.config = dict(self.CONFIG_DEFAULTS, **config)
     self.cache = cache
