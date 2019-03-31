@@ -34,7 +34,6 @@ import io
 import traceback
 
 import frozendict
-import pyperclip
 
 DEFAULT_CACHE = 'balances.pickle'
 
