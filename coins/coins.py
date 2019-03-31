@@ -44,11 +44,10 @@ import pickle
 import sys
 import traceback
 
+import frozendict
 import pyperclip
 
 from coins import cmc
-
-EXCHANGES_MODULE_BASE = 'coins.exchanges'
 
 
 class Cache(object):
@@ -64,98 +63,131 @@ class Cache(object):
     with open(self.cache_file, 'rb') as f:
       return pickle.load(f)
 
-  def read(self, module_name):
+  def read(self, key):
     """Read from the cache file and return the data for a given module."""
-    if module_name in self.ignore_cache_for:
+    if key in self.ignore_cache_for:
       return
     data = self._read()
-    return data.get(module_name)
+    return data.get(key)
 
-  def write(self, module_name, exchange_data):
+  def write(self, key, value):
     """Write to the cache file."""
     data = self._read()
-    data[module_name] = exchange_data
+    data[key] = value
     with open(self.cache_file, 'wb') as f:
       pickle.dump(data, f)
 
 
-def get_exchange_module(module_name):
-  return importlib.import_module('{}.{}'.format(EXCHANGES_MODULE_BASE, module_name))
-
-
-def get_balances(module_name, exchange_module, cache):
-  """Get balances either from the cache or by making a query."""
-  exchange_name = exchange_module.NAME
-  exchange_data = cache.read(module_name)
-
-  if exchange_data is not None:
-    print('Reading cached data for exchange {}.'.format(exchange_name))
-
-  else:
-    print('Making request to {} API.'.format(exchange_name))
-    exchange_data = exchange_module.get_balances()
-    cache.write(module_name, exchange_data)
-
-  return exchange_data
-
-
-def get_data(module_names, config, cache=None):
-  """Acquire all data and transform it for output to a CSV.
-
-  Args:
-    cache: Cache object.
-
-  Returns:
-    Account balances, in a format like the following:
-
-        {
-            'BTC': {
-                'Poloniex': 1.0,
-                'GDAX': 2.0,
-                'Bittrex': 0.0,
-            },
-            'ETH': {
-                'Poloniex': 0.0,
-                'GDAX': 1.0,
-                'Bittrex': 1.0,
-            },
-        }
-  """
-  total_column = getattr(config, 'TOTAL_COLUMN', 'Subtotal')
-
-  data = collections.defaultdict(lambda: collections.defaultdict(int))
-  columns = []
-
-  for module_name in module_names:
-    exchange_module = get_exchange_module(module_name)
-    exchange_name = exchange_module.NAME
-    try:
-      balances = get_balances(module_name, exchange_module, cache)
-    except Exception as e:
-      traceback.print_exc()
-      continue
-    for currency, amount in balances.items():
-      data[currency][exchange_name] = amount
-      data[currency][total_column] += amount
-    columns.append(exchange_name)
-
-  # Sort the exchanges alphabetically.
-  columns.sort()
-  columns.append(total_column)
-
-  # Apply symbol mapping and remove unnecessary rows.
-  exclude_zeros = getattr(config, 'EXCLUDE_ZEROS', True)
-  required_rows = getattr(config, 'REQUIRED_ROWS', [])
-  symbol_map = getattr(config, 'SYMBOL_TRANSFORM', {})
-  data = {
-      symbol_map.get(symbol, symbol): balances
-      for symbol, balances in data.items()
-      if (not exclude_zeros or
-          symbol in required_rows or
-          any(amount for amount in balances.values()))
+class Exchanges(object):
+  CONFIG_DEFAULTS = {
+      'EXCLUDE_ZEROS': True,
+      'REQUIRED_ROWS': (),
+      'SYMBOL_TRANSFORM': frozendict.frozendict(),
   }
+  EXCHANGES_MODULE_BASE = 'coins.exchanges'
 
-  return data, columns
+  def __init__(self, config, cache):
+    if not isinstance(config, dict):
+      config = config.__dict__
+
+    self.config = dict(self.CONFIG_DEFAULTS, **config)
+    self.cache = cache
+
+  def _get_exchange_module(self, module_name):
+    return importlib.import_module(
+        '{}.{}'.format(self.EXCHANGES_MODULE_BASE, module_name)
+    )
+
+  def get_data(self, module_name):
+    """Get balances for an exchange.
+
+    Returns:
+
+      Balances, as follows:
+
+          {
+              'Poloniex': {
+                  'BTC': 1.0,
+                  'ETH': 2.0,
+                  'XRP': 0.0,
+              }
+          }
+    """
+    exchange_module = self._get_exchange_module(module_name)
+    exchange_name = exchange_module.NAME
+    exchange_data = self.cache.read(module_name)
+
+    if exchange_data is not None:
+      print('Using cached data for exchange {}.'.format(exchange_name))
+
+    else:
+      print('Making request to {} API.'.format(exchange_name))
+      balances = exchange_module.get_balances()
+
+      # Apply transformations, according to the configuration.
+      balances = {
+          self.config['SYMBOL_TRANSFORM'].get(symbol, symbol): balance
+          for symbol, balance in balances.items()
+          if (not self.config['EXCLUDE_ZEROS'] or
+              symbol in self.config['REQUIRED_ROWS'] or
+              balance)
+      }
+
+      exchange_data = { exchange_name: balances }
+      self.cache.write(module_name, exchange_data)
+
+    return exchange_data
+
+  @staticmethod
+  def merge_data(exchange_balances, total_column='Total'):
+    """Merge data from multiple exchanges and calculate totals by symbol.
+
+    Returns:
+      Account balances, in a format like the following:
+
+          {
+              'BTC': {
+                  'Poloniex': 1.0,
+                  'GDAX': 2.0,
+                  'Bittrex': 0.0,
+              },
+              'ETH': {
+                  'Poloniex': 0.0,
+                  'GDAX': 1.0,
+                  'Bittrex': 1.0,
+              },
+          }
+    """
+    data = collections.defaultdict(lambda: collections.defaultdict(int))
+    columns = []
+
+    for exchange_data in exchange_balances:
+      assert len(exchange_data) == 1
+      exchange_name = list(exchange_data.keys())[0]
+      balances = exchange_data[exchange_name]
+
+      for currency, amount in balances.items():
+        data[currency][exchange_name] = amount
+        data[currency][total_column] += amount
+      columns.append(exchange_name)
+
+    # Sort the exchange names alphabetically.
+    columns.sort()
+    columns.append(total_column)
+    return data, columns
+
+  def get_table(self, module_names, handle_error):
+    results = []
+
+    for name in module_names:
+      try:
+        data = self.get_data(name)
+      except Exception as e:
+        handle_error(e)
+      else:
+        results.append(data)
+
+    return Exchanges.merge_data(results)
 
 
 def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
@@ -205,7 +237,7 @@ def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
 def main():
   """Retrieve account balances and save a data table to the clipboard."""
 
-  # Read config from config.py.
+  # Read config from coins/config.py.
   try:
     from coins import config
   except ImportError:
@@ -228,7 +260,13 @@ def main():
 
   CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
   cache = Cache(CACHE_FILE, ignore_cache_for)
-  data, columns = get_data(module_names, config, cache)
+
+  exchanges = Exchanges(config, cache)
+
+  def handle_error(_error):
+    traceback.print_exc()
+
+  data, columns = exchanges.get_table(module_names, handle_error)
 
   # Calculate USD totals by exchange.
   usd_by_exchange = collections.defaultdict(int)
@@ -242,28 +280,28 @@ def main():
   for symbol, balances in data.items():
     for exchange_name, amount in balances.items():
       usd_by_exchange[exchange_name] += amount * quotes[symbol]
-  usd_by_exchange.pop('Subtotal')
+  usd_by_exchange.pop('Total')
 
   # Calculate USD totals by token.
   usd_by_token = {
-      symbol: balances['Subtotal'] * quotes[symbol]
+      symbol: balances['Total'] * quotes[symbol]
       for symbol, balances in data.items()
   }
 
   high_value_token_counts = (
-      (symbol, balances['Subtotal'])
+      (symbol, balances['Total'])
       for symbol, balances in data.items()
       if usd_by_token[symbol] >= 500.0
   )
 
   mid_value_token_counts = (
-      (symbol, balances['Subtotal'])
+      (symbol, balances['Total'])
       for symbol, balances in data.items()
       if usd_by_token[symbol] >= 20.0 and usd_by_token[symbol] < 500.0
   )
 
   low_value_token_counts = (
-      (symbol, balances['Subtotal'])
+      (symbol, balances['Total'])
       for symbol, balances in data.items()
       if usd_by_token[symbol] < 20.0
   )
