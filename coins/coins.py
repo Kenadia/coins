@@ -39,47 +39,14 @@ import collections
 import csv
 import importlib
 import io
-import os
-import pickle
-import sys
-import traceback
 
 import frozendict
 import pyperclip
 
-from coins import cmc
-
-
-class Cache(object):
-
-  def __init__(self, cache_file, ignore_cache_for):
-    self.cache_file = cache_file
-    self.ignore_cache_for = ignore_cache_for
-
-  def _read(self):
-    """Read the whole cache."""
-    if not os.path.exists(self.cache_file):
-      return {}
-    with open(self.cache_file, 'rb') as f:
-      return pickle.load(f)
-
-  def read(self, key):
-    """Read from the cache file and return the data for a given module."""
-    if key in self.ignore_cache_for:
-      return
-    data = self._read()
-    return data.get(key)
-
-  def write(self, key, value):
-    """Write to the cache file."""
-    data = self._read()
-    data[key] = value
-    with open(self.cache_file, 'wb') as f:
-      pickle.dump(data, f)
-
 
 class Exchanges(object):
   CONFIG_DEFAULTS = {
+      'EXCHANGE_KEYS': frozendict.frozendict(),
       'EXCLUDE_ZEROS': True,
       'REQUIRED_ROWS': (),
       'SYMBOL_TRANSFORM': frozendict.frozendict(),
@@ -122,7 +89,8 @@ class Exchanges(object):
 
     else:
       print('Making request to {} API.'.format(exchange_name))
-      balances = exchange_module.get_balances()
+      module_config = self.config['EXCHANGE_KEYS'][module_name]
+      balances = exchange_module.get_balances(module_config)
 
       # Apply transformations, according to the configuration.
       balances = {
@@ -232,108 +200,3 @@ def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
   except NameError:
     print('No data was retrieved. Please configure `EXCHANGES` in config.py.\n')
   return out.getvalue()
-
-
-def main():
-  """Retrieve account balances and save a data table to the clipboard."""
-
-  # Read config from coins/config.py.
-  try:
-    from coins import config
-  except ImportError:
-    print('Warning: Please add a `config.py` file in order to use this script.\n')
-    config = object()
-
-  module_names = getattr(config, 'EXCHANGES', [])
-
-  # No argument: Use the cache for all exchanges.
-  if len(sys.argv) == 1:
-    ignore_cache_for = []
-
-  # Argument is `all`: Ignore the cache for all exchanges.
-  elif sys.argv[1] == 'all':
-    ignore_cache_for = module_names
-
-  # Otherwise: Ignore the cache for the specified exchanges.
-  else:
-    ignore_cache_for = sys.argv[1].split(',')
-
-  CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
-  cache = Cache(CACHE_FILE, ignore_cache_for)
-
-  exchanges = Exchanges(config, cache)
-
-  def handle_error(_error):
-    traceback.print_exc()
-
-  data, columns = exchanges.get_table(module_names, handle_error)
-
-  # Calculate USD totals by exchange.
-  usd_by_exchange = collections.defaultdict(int)
-  symbols = data.keys()
-
-  if not symbols:
-    print('Cannot continue: did not find any balances.')
-    sys.exit(1)
-
-  quotes = cmc.get_quotes(symbols)
-  for symbol, balances in data.items():
-    for exchange_name, amount in balances.items():
-      usd_by_exchange[exchange_name] += amount * quotes[symbol]
-  usd_by_exchange.pop('Total')
-
-  # Calculate USD totals by token.
-  usd_by_token = {
-      symbol: balances['Total'] * quotes[symbol]
-      for symbol, balances in data.items()
-  }
-
-  high_value_token_counts = (
-      (symbol, balances['Total'])
-      for symbol, balances in data.items()
-      if usd_by_token[symbol] >= 500.0
-  )
-
-  mid_value_token_counts = (
-      (symbol, balances['Total'])
-      for symbol, balances in data.items()
-      if usd_by_token[symbol] >= 20.0 and usd_by_token[symbol] < 500.0
-  )
-
-  low_value_token_counts = (
-      (symbol, balances['Total'])
-      for symbol, balances in data.items()
-      if usd_by_token[symbol] < 20.0
-  )
-
-  # Print token counts.
-  print('HIGH VALUE')
-  for symbol, balance in sorted(high_value_token_counts):
-    print('% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol]))
-  print()
-  print('MID VALUE')
-  for symbol, balance in sorted(mid_value_token_counts):
-    print('% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol]))
-  print()
-  print('LOW VALUE')
-  for symbol, balance in sorted(low_value_token_counts):
-    print('% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol]))
-  print()
-
-  print()
-
-  for exchange_name, usd_total in usd_by_exchange.items():
-    print('% 15s: %.2f' % (exchange_name, usd_total))
-  print()
-  print('% 15s: %.2f' % ('TOTAL', sum(usd_by_exchange.values())))
-
-  # csv_string = write_csv(data, columns, total_column, exclude_zeros, required_rows,
-  #                        symbol_map, delimiter='\t')
-
-  # raw_input('Export ready. Press enter to save to clipboard.')
-  # pyperclip.copy(csv_string)
-  # print()
-
-
-if __name__ == '__main__':
-  main()
