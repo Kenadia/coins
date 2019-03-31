@@ -219,24 +219,59 @@ def main():
           any(amount for amount in balances.itervalues()))
   }
 
-  # Calculate USD totals.
-  totals = collections.defaultdict(int)
+  # Calculate USD totals by exchange.
+  usd_by_exchange = collections.defaultdict(int)
   symbols = data.iterkeys()
   quotes = cmc.get_quotes(symbols)
   for symbol, balances in data.iteritems():
     for exchange_name, amount in balances.iteritems():
-      totals[exchange_name] += amount * quotes[symbol]
-  totals.pop('Subtotal')
+      usd_by_exchange[exchange_name] += amount * quotes[symbol]
+  usd_by_exchange.pop('Subtotal')
 
-  for symbol, balances in sorted(data.iteritems()):
-    print '% 15s: % 11.2f' % (symbol, balances['Subtotal'])
+  # Calculate USD totals by token.
+  usd_by_token = {
+      symbol: balances['Subtotal'] * quotes[symbol]
+      for symbol, balances in data.iteritems()
+  }
+
+  high_value_token_counts = (
+      (symbol, balances['Subtotal'])
+      for symbol, balances in data.iteritems()
+      if usd_by_token[symbol] >= 500.0
+  )
+
+  mid_value_token_counts = (
+      (symbol, balances['Subtotal'])
+      for symbol, balances in data.iteritems()
+      if usd_by_token[symbol] >= 20.0 and usd_by_token[symbol] < 500.0
+  )
+
+  low_value_token_counts = (
+      (symbol, balances['Subtotal'])
+      for symbol, balances in data.iteritems()
+      if usd_by_token[symbol] < 20.0
+  )
+
+  # Print token counts.
+  print 'HIGH VALUE'
+  for symbol, balance in sorted(high_value_token_counts):
+    print '% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol])
+  print
+  print 'MID VALUE'
+  for symbol, balance in sorted(mid_value_token_counts):
+    print '% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol])
+  print
+  print 'LOW VALUE'
+  for symbol, balance in sorted(low_value_token_counts):
+    print '% 15s: % 11.2f = $% 9.2f' % (symbol, balance, usd_by_token[symbol])
+  print
 
   print
 
-  for exchange_name, usd_total in totals.iteritems():
+  for exchange_name, usd_total in usd_by_exchange.iteritems():
     print '% 15s: %.2f' % (exchange_name, usd_total)
   print
-  print '% 15s: %.2f' % ('TOTAL', sum(totals.itervalues()))
+  print '% 15s: %.2f' % ('TOTAL', sum(usd_by_exchange.itervalues()))
 
   # csv_string = write_csv(data, columns, exclude_zeros, required_rows,
   #                        symbol_map, delimiter='\t')
