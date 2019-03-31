@@ -12,11 +12,7 @@ except ImportError:
   sys.exit(1)
 
 
-def main():
-  """Retrieve account balances and save a data table to the clipboard."""
-
-  module_names = getattr(config, 'EXCHANGES', [])
-
+def parse_args():
   # No argument: Use the cache for all exchanges.
   if len(sys.argv) == 1:
     ignore_cache_for = []
@@ -28,15 +24,21 @@ def main():
   # Otherwise: Ignore the cache for the specified exchanges.
   else:
     ignore_cache_for = sys.argv[1].split(',')
+  return ignore_cache_for
 
+
+def handle_error(_error):
+  traceback.print_exc()
+
+
+def main():
+  """Retrieve account balances and save a data table to the clipboard."""
   CACHE_FILE = getattr(config, 'CACHE_FILE', 'balances.pickle')
+  module_names = getattr(config, 'EXCHANGES', [])
+
+  ignore_cache_for = parse_args()
   cache = coins.Cache(CACHE_FILE, ignore_cache_for)
-
   exchanges = coins.Exchanges(config, cache)
-
-  def handle_error(_error):
-    traceback.print_exc()
-
   data, columns = exchanges.get_table(module_names, handle_error)
 
   # Calculate USD totals by exchange.
