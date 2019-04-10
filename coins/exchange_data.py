@@ -147,7 +147,12 @@ class Exchanges(object):
     columns.append(total_column)
     return data, columns
 
-  def get_table(self, module_names, handle_error=print_error_with_traceback):
+  def get_table(
+    self,
+    module_names,
+    handle_error=print_error_with_traceback,
+    total_column='Total',
+  ):
     results = []
 
     for name in module_names:
@@ -158,7 +163,7 @@ class Exchanges(object):
       else:
         results.append(data)
 
-    return Exchanges.merge_data(results)
+    return Exchanges.merge_data(results, total_column)
 
 
 def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
