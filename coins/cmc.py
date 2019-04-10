@@ -84,7 +84,7 @@ class CMC(object):
     }
 
     if invalid_symbols:
-      quotes.update({ symbol: 0 for symbol in invalid_symbols })
+      # quotes.update({ symbol: 0 for symbol in invalid_symbols })
       print ('Warning: CoinMarketCap does not recognize the following symbols '
              '["{}"]'.format('", "'.join(invalid_symbols)))
 
@@ -93,7 +93,7 @@ class CMC(object):
     missing_symbols = set(symbols) - set(quotes)
 
     if missing_symbols:
-      quotes.update({ symbol: 0 for symbol in missing_symbols })
+      # quotes.update({ symbol: 0 for symbol in missing_symbols })
       print ('Warning: CoinMarketCap did not return quotes for the following '
              'symbols ["{}"]'.format('", "'.join(missing_symbols)))
 

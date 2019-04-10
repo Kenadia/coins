@@ -57,7 +57,7 @@ def main():
   quotes = coins.CMC(config).get_quotes(symbols)
   for symbol, balances in data.items():
     for exchange_name, amount in balances.items():
-      usd_by_exchange[exchange_name] += amount * quotes[symbol]
+      usd_by_exchange[exchange_name] += amount * quotes.get(symbol, 0)
   usd_by_exchange.pop('Total')
 
   # Calculate USD totals by token.
