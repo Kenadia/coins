@@ -17,4 +17,4 @@ if __name__ == '__main__':
   balances = get_balances(api_creds)
   for symbol, balance in balances.items():
     if balance > 0:
-      print '%6s %.3f' % (symbol, balance)
+      print('%6s %.3f' % (symbol, balance))
