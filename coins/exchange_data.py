@@ -31,6 +31,7 @@ import collections
 import csv
 import importlib
 import io
+import time
 import traceback
 
 import frozendict
@@ -87,10 +88,11 @@ class Exchanges(object):
           }
     """
     exchange_module = self._get_exchange_module(module_name)
-    balances = self.cache.read(module_name)
+    cached = self.cache.read(module_name)
 
-    if balances is not None:
+    if cached is not None:
       print('Using cached data for exchange `{}`.'.format(module_name))
+      balances, updated_at = cached
 
     else:
       print('Making request to `{}` API.'.format(module_name))
@@ -105,9 +107,10 @@ class Exchanges(object):
               symbol in self.config['REQUIRED_ROWS'] or
               balance)
       }
-      self.cache.write(module_name, balances)
+      updated_at = time.time()
+      self.cache.write(module_name, (balances, updated_at))
 
-    return balances
+    return balances, updated_at
 
   @staticmethod
   def merge_data(exchange_balances, total_column='Total'):
@@ -154,18 +157,20 @@ class Exchanges(object):
     total_column='Total',
   ):
     results = []
+    updated_at_map = {}
 
-    for name in module_names:
+    for module_name in module_names:
       try:
-        data = {
-            self.get_exchange_name(name): self.get_exchange_balances(name)
-        }
+        exchange_name = self.get_exchange_name(module_name)
+        balances, updated_at = self.get_exchange_balances(module_name)
       except Exception as e:
         handle_error(e)
       else:
-        results.append(data)
+        results.append({ exchange_name: balances })
+        updated_at_map[exchange_name] = updated_at
 
-    return Exchanges.merge_data(results, total_column)
+    data, columns = Exchanges.merge_data(results, total_column)
+    return data, columns, updated_at_map
 
 
 def write_csv(data, columns, total_column, exclude_zeros, required_rows=None,
