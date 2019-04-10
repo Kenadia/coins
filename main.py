@@ -21,7 +21,7 @@ except ImportError:
   sys.exit(1)
 
 
-def parse_args():
+def parse_args(module_names):
   # No argument: Use the cache for all exchanges.
   if len(sys.argv) == 1:
     ignore_cache_for = []
@@ -41,10 +41,10 @@ def main():
   CACHE_FILE = getattr(config, 'CACHE_FILE', coins.exchange_data.DEFAULT_CACHE)
   module_names = getattr(config, 'EXCHANGES', [])
 
-  ignore_cache_for = parse_args()
+  ignore_cache_for = parse_args(module_names)
   cache = coins.cache.Cache(CACHE_FILE, ignore_cache_for)
   exchanges = coins.Exchanges(config, cache)
-  data, columns = exchanges.get_table(module_names)
+  data, columns, updated_at_map = exchanges.get_table(module_names)
 
   # Calculate USD totals by exchange.
   usd_by_exchange = collections.defaultdict(int)
@@ -62,7 +62,7 @@ def main():
 
   # Calculate USD totals by token.
   usd_by_token = {
-      symbol: balances['Total'] * quotes[symbol]
+      symbol: balances['Total'] * quotes.get(symbol, 0)
       for symbol, balances in data.items()
   }
 
