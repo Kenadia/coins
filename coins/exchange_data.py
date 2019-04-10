@@ -68,7 +68,10 @@ class Exchanges(object):
         '{}.{}'.format(self.EXCHANGES_MODULE_BASE, module_name)
     )
 
-  def get_data(self, module_name):
+  def get_exchange_name(self, module_name):
+    return self._get_exchange_module(module_name).NAME
+
+  def get_exchange_balances(self, module_name):
     """Get balances for an exchange.
 
     Returns:
@@ -84,30 +87,27 @@ class Exchanges(object):
           }
     """
     exchange_module = self._get_exchange_module(module_name)
-    exchange_name = exchange_module.NAME
-    exchange_data = self.cache.read(module_name)
+    balances = self.cache.read(module_name)
 
-    if exchange_data is not None:
-      print('Using cached data for exchange {}.'.format(exchange_name))
+    if balances is not None:
+      print('Using cached data for exchange `{}`.'.format(module_name))
 
     else:
-      print('Making request to {} API.'.format(exchange_name))
+      print('Making request to `{}` API.'.format(module_name))
       module_config = self.config['EXCHANGE_KEYS'][module_name]
-      balances = exchange_module.get_balances(module_config)
+      raw_balances = exchange_module.get_balances(module_config)
 
       # Apply transformations, according to the configuration.
       balances = {
           self.config['SYMBOL_TRANSFORM'].get(symbol, symbol): balance
-          for symbol, balance in balances.items()
+          for symbol, balance in raw_balances.items()
           if (not self.config['EXCLUDE_ZEROS'] or
               symbol in self.config['REQUIRED_ROWS'] or
               balance)
       }
+      self.cache.write(module_name, balances)
 
-      exchange_data = { exchange_name: balances }
-      self.cache.write(module_name, exchange_data)
-
-    return exchange_data
+    return balances
 
   @staticmethod
   def merge_data(exchange_balances, total_column='Total'):
@@ -157,7 +157,9 @@ class Exchanges(object):
 
     for name in module_names:
       try:
-        data = self.get_data(name)
+        data = {
+            self.get_exchange_name(name): self.get_exchange_balances(name)
+        }
       except Exception as e:
         handle_error(e)
       else:
